@@ -27,8 +27,8 @@ let rows = client.query($query, $args).await?;
 ```
 
 As can be seen from the example above a shortcut is allowed when the name
-of the argument is identical to the variable name, similar to what's allowd in
-Rust `struc`'s.
+of the argument is identical to the variable name, similar to what's allowed in
+Rust `struct`'s.
 
 For `INSERT`'s a special syntax is supported, which helps to avoid mismatches
 between the list of column names and the values:
