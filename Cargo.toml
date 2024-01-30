@@ -7,4 +7,13 @@ repository = "https://github.com/tandemdrive/pg_named_args"
 description = "PostgreSQL named arguments"
 license = "MIT OR Apache-2.0"
 
+[lib]
+proc-macro = true
+
 [dependencies]
+proc-macro2 = "1.0.70"
+quote = "1.0.33"
+syn = { version = "2.0.41", default-features = false, features = ["clone-impls", "parsing", "printing", "proc-macro", "full"] }
+
+[dev-dependencies]
+postgres-types = "0.2.6"
