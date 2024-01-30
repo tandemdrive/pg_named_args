@@ -23,7 +23,7 @@ let (query, args) = pg_named_args!(
         "end": &period.end,
     }
 );
-let rows = client.query($query, $args).await?;
+let rows = client.query(query, args).await?;
 ```
 
 As can be seen from the example above a shortcut is allowed when the name
@@ -45,7 +45,7 @@ let (query, args) = pg_named_args!(
     ",
     { location, time, report }
 );
-client.execute($query, $args).await?;
+client.execute(query, args).await?;
 ```
 
 ## Goals

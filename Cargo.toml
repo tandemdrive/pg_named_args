@@ -6,6 +6,9 @@ readme = "README.md"
 repository = "https://github.com/tandemdrive/pg_named_args"
 description = "PostgreSQL named arguments"
 license = "MIT OR Apache-2.0"
+authors = ["TandemDrive"]
+keywords = ["postgresql", "database", "query", "arguments", "macro"]
+categories = ["database-interfaces"]
 
 [lib]
 proc-macro = true
