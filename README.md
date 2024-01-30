@@ -9,7 +9,7 @@ arguments.
 Example:
 
 ```rust
-let (query, args) = pg_named_args!(
+let (query, args) = query_args!(
     r"
     SELECT location, time, report
     FROM weather_reports
@@ -17,36 +17,37 @@ let (query, args) = pg_named_args!(
         AND time BETWEEN $start AND $end
     ORDER BY location, time DESC
     ",
-    {
+    Args {
         location,
-        "start": &period.start,
-        "end": &period.end,
+        start: period.start,
+        end: period.end,
     }
 );
 let rows = client.query(query, args).await?;
 ```
 
-As can be seen from the example above a shortcut is allowed when the name
-of the argument is identical to the variable name, similar to what's allowed in
-Rust `struct`'s.
+The macro uses struct syntax for the named arguments. The struct name `Args` is required to support rustfmt and rust-analyzer.
+As can be seen from the example above, shorthand field initialization is also allowed for named arguments.
 
 For `INSERT`'s a special syntax is supported, which helps to avoid mismatches
 between the list of column names and the values:
 
 ```rust
-let (query, args) = pg_named_args!(
+let (query, args) = query_args!(
     r"
     INSERT INTO weather_reports
-    ($[
-        location,
-        time,
-        report
-    ]) VALUES ($[..])
+        ( $[location, time, report] ) 
+    VALUES 
+        ( $[..] )
     ",
-    { location, time, report }
+    Args { location, time, report }
 );
 client.execute(query, args).await?;
 ```
+
+The macro is written in a way that is rust-analyzer friendly.
+This means that rust analyzer knows which parameters are required and can complete them.
+Use the code action "Fill struct fields" or ask rust analyzer to complete a field name.
 
 ## Goals
 
@@ -54,7 +55,9 @@ client.execute(query, args).await?;
 
 - Reduce the risk of mismatching query arguments.
 
-- Basic support for using rust-analyzer to help one with the syntax.
+- Support for rust-analyzer completion and some code actions.
+
+- Support for rustfmt to help with formatting.
 
 ## Contributing
 
