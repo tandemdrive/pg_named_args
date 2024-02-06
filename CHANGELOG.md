@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.1] - 2024-01-30
+
+Fix: The macro would incorrectly accept some invocations without `Args` struct name.
+
 ## [0.2.0] - 2024-01-30
 
 The actual first working version of `pg_named_arg`!
