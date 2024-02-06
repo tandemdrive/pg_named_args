@@ -1,11 +1,12 @@
-use proc_macro::TokenStream;
-use proc_macro2::{Ident, Span};
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{
+    braced,
     ext::IdentExt,
     parse::{Parse, ParseStream},
     parse2, parse_macro_input, parse_quote,
     spanned::Spanned,
+    token::Brace,
     ExprStruct, ItemStruct, LitStr, Member, Token,
 };
 
@@ -29,27 +30,29 @@ use syn::{
 /// tests](https://git.service.d11n.nl/dreamsolution/tandemdrive/src/branch/main/share/proc_macros/tests/integration/main.rs) for examples.
 // #[proc_macro]
 #[proc_macro]
-pub fn query_args(input: TokenStream) -> TokenStream {
-    let input_raw = proc_macro2::TokenStream::from(input.clone());
+pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input_raw = TokenStream::from(input.clone());
     let format = parse_macro_input!(input as Format);
     let mut errors = vec![];
 
     let mut names = vec![];
     let template = rewrite_query(format.template, &mut names, &mut errors);
 
-    let mut def = None;
-    if let Ok(path) = parse2::<PartialStruct>(format.args.clone()) {
-        let name = &path.name.segments.last().unwrap().ident;
-        def = Some(struct_def(name, &names));
-        if path.name.to_token_stream().to_string() != "Args" {
-            errors.push(syn::Error::new_spanned(
-                &path.name,
-                "expected struct name to be `Args`",
-            ));
-        }
+    let def = struct_def(&format.args_name, &names);
+    if (&format.args_name) != "Args" {
+        errors.push(syn::Error::new_spanned(
+            &format.args_name,
+            "expected struct name to be `Args`",
+        ));
     }
 
-    let params = if let Ok(res) = parse2::<ExprStruct>(format.args) {
+    let mut init = TokenStream::new();
+    format.args_name.to_tokens(&mut init);
+    format
+        .args_brace
+        .surround(&mut init, |init| format.args_inner.to_tokens(init));
+
+    let params = if let Ok(res) = parse2::<ExprStruct>(init) {
         let params = names
             .iter()
             .filter_map(|search| {
@@ -188,29 +191,20 @@ fn rewrite_query(inp: LitStr, names: &mut Vec<String>, errors: &mut Vec<syn::Err
 struct Format {
     template: LitStr,
     _comma: Token![,],
-    args: proc_macro2::TokenStream,
+    args_name: Ident,
+    args_brace: Brace,
+    args_inner: proc_macro2::TokenStream,
 }
 
 impl Parse for Format {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let inner;
         Ok(Format {
             template: input.parse()?,
             _comma: input.parse()?,
-            args: input.parse()?,
-        })
-    }
-}
-
-struct PartialStruct {
-    name: syn::Path,
-    _rest: proc_macro2::TokenStream,
-}
-
-impl Parse for PartialStruct {
-    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        Ok(PartialStruct {
-            name: input.parse()?,
-            _rest: input.parse()?,
+            args_name: input.parse()?,
+            args_brace: braced!(inner in input),
+            args_inner: inner.parse()?,
         })
     }
 }
@@ -326,5 +320,11 @@ INSERT INTO some_table (
             assert_eq!(error_msgs.len(), 1, "{error_msgs:?}");
             assert_eq!(error_msgs[0], err);
         }
+    }
+
+    #[test]
+    fn ui() {
+        let t = trybuild::TestCases::new();
+        t.compile_fail("tests/ui/*.rs");
     }
 }
