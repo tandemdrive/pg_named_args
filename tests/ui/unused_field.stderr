@@ -1,0 +1,7 @@
+error[E0560]: struct `main::Args<{integer}, {integer}>` has no field named `c`
+  --> tests/ui/unused_field.rs:10:13
+   |
+10 |             c: test
+   |             ^ `main::Args<_, _>` does not have this field
+   |
+   = note: all struct fields are already assigned

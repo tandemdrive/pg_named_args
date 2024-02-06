@@ -20,3 +20,4 @@ syn = { version = "2.0.41", default-features = false, features = ["clone-impls",
 
 [dev-dependencies]
 postgres-types = "0.2.6"
+trybuild = "1.0.89"
