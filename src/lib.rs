@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{

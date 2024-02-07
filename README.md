@@ -8,7 +8,7 @@ arguments.
 
 Example:
 
-```rust
+```rust,ignore
 let (query, args) = query_args!(
     r"
     SELECT location, time, report
@@ -32,7 +32,7 @@ As can be seen from the example above, shorthand field initialization is also al
 For `INSERT`'s a special syntax is supported, which helps to avoid mismatches
 between the list of column names and the values:
 
-```rust
+```rust,ignore
 let (query, args) = query_args!(
     r"
     INSERT INTO weather_reports
