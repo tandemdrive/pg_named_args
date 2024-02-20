@@ -141,6 +141,13 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         .surround(&mut init, |init| format.args_inner.to_tokens(init));
 
     let params = if let Ok(res) = parse2::<ExprStruct>(init) {
+        if let Some(dots) = res.dot2_token {
+            errors.push(syn::Error::new_spanned(
+                dots,
+                "struct update syntax is not supported by the query_args macro",
+            ))
+        }
+
         let params = names
             .iter()
             .filter_map(|search| {
