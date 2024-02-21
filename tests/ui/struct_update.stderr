@@ -1,0 +1,5 @@
+error: struct update syntax is not supported by the query_args macro
+ --> tests/ui/struct_update.rs:7:13
+  |
+7 |             ..Args {
+  |             ^^
