@@ -4,7 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.2.1] - 2024-01-30
+## [0.2.2] - 2024-02-28
+
+Fix: The macro would incorrectly accept struct update syntax.
+Copied the readme documentation to the docs.
+
+## [0.2.1] - 2024-02-06
 
 Fix: The macro would incorrectly accept some invocations without `Args` struct name.
 
