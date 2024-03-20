@@ -230,7 +230,10 @@ fn rewrite_query(inp: LitStr, names: &mut Vec<String>, errors: &mut Vec<syn::Err
 
         if ident.is_empty() {
             let Some("[") = inp.get(..1) else {
-                errors.push(syn::Error::new(span, "expected ident or [ after $"));
+                errors.push(syn::Error::new(
+                    span,
+                    "expected identifier or `[` after `$`",
+                ));
                 return LitStr::new(&template, span);
             };
             inp = &inp[1..];
@@ -242,14 +245,21 @@ fn rewrite_query(inp: LitStr, names: &mut Vec<String>, errors: &mut Vec<syn::Err
             inp = &inp[until..];
 
             let Some("]") = inp.get(..1) else {
-                errors.push(syn::Error::new(span, "expected closing ]"));
+                errors.push(syn::Error::new(span, "expected closing `]`"));
                 return LitStr::new(&template, span);
             };
             inp = &inp[1..];
 
             if columns == ".." {
                 if batch.is_empty() {
-                    errors.push(syn::Error::new(span, "$[..] is empty"));
+                    errors.push(syn::Error::new(span, "`$[..]` is empty"));
+                    continue;
+                } else if batch.trim().ends_with(',') {
+                    errors.push(syn::Error::new(
+                        span,
+                        "found trailing comma, expected closing `]`",
+                    ));
+
                     continue;
                 }
 
@@ -264,7 +274,7 @@ fn rewrite_query(inp: LitStr, names: &mut Vec<String>, errors: &mut Vec<syn::Err
                 batch = "";
             } else {
                 if !batch.is_empty() {
-                    errors.push(syn::Error::new(span, "$[..] is not used"));
+                    errors.push(syn::Error::new(span, "`$[..]` is not used"));
                 }
 
                 template.push_str(columns);
