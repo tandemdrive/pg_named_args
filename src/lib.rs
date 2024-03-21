@@ -198,9 +198,11 @@ fn struct_def(name: &Ident, names: &[String]) -> ItemStruct {
 
 fn rewrite_query(inp: LitStr, names: &mut Vec<String>, errors: &mut Vec<syn::Error>) -> LitStr {
     let span = inp.span();
+    let mut push_err = |message: &str| errors.push(syn::Error::new(span, message));
+
     let mut inp = &*inp.value();
     let mut template = String::new();
-    let mut batch = "";
+    let mut batch = None::<String>;
 
     let mut get_idx = |ident: &str| {
         if let Some(idx) = names.iter().position(|x| x == ident) {
@@ -230,10 +232,7 @@ fn rewrite_query(inp: LitStr, names: &mut Vec<String>, errors: &mut Vec<syn::Err
 
         if ident.is_empty() {
             let Some("[") = inp.get(..1) else {
-                errors.push(syn::Error::new(
-                    span,
-                    "expected identifier or `[` after `$`",
-                ));
+                push_err("expected identifier or `[` after `$`");
                 return LitStr::new(&template, span);
             };
             inp = &inp[1..];
@@ -245,40 +244,38 @@ fn rewrite_query(inp: LitStr, names: &mut Vec<String>, errors: &mut Vec<syn::Err
             inp = &inp[until..];
 
             let Some("]") = inp.get(..1) else {
-                errors.push(syn::Error::new(span, "expected closing `]`"));
+                push_err("expected closing `]`");
                 return LitStr::new(&template, span);
             };
             inp = &inp[1..];
 
             if columns == ".." {
-                if batch.is_empty() {
-                    errors.push(syn::Error::new(span, "`$[..]` is empty"));
+                let Some(columns) = batch.take() else {
+                    push_err("parameter group is used, but not defined");
                     continue;
-                } else if batch.trim().ends_with(',') {
-                    errors.push(syn::Error::new(
-                        span,
-                        "found trailing comma, expected closing `]`",
-                    ));
+                };
 
-                    continue;
-                }
-
+                template.push_str(&columns);
+            } else {
                 let mut out = vec![];
-                for column in batch.split(',') {
+                for column in columns.split(',') {
                     let ident = column.trim();
+                    if ident.is_empty() {
+                        push_err(
+                            "expected identifier between all of `$[`, every `,` and final `]`",
+                        );
+                        continue;
+                    }
+
                     let idx = get_idx(ident);
                     out.push(format!("${}", idx + 1));
                 }
 
-                template.push_str(&out.join(", "));
-                batch = "";
-            } else {
-                if !batch.is_empty() {
-                    errors.push(syn::Error::new(span, "`$[..]` is not used"));
+                if batch.replace(out.join(", ")).is_some() {
+                    push_err("previous parameter group is not used");
                 }
 
                 template.push_str(columns);
-                batch = columns;
             }
         } else {
             let idx = get_idx(ident);
@@ -286,8 +283,8 @@ fn rewrite_query(inp: LitStr, names: &mut Vec<String>, errors: &mut Vec<syn::Err
         }
     }
 
-    if !batch.is_empty() {
-        errors.push(syn::Error::new(span, "`$[..]` is not used"));
+    if batch.is_some() {
+        push_err("last parameter group is not used");
     }
 
     LitStr::new(&template, span)
@@ -364,7 +361,7 @@ INSERT INTO some_table (
     $one, $two, $three, $[..]
 );
                 ",
-                "`$[..]` is empty",
+                "parameter group is used, but not defined",
             ),
             (
                 r"
@@ -374,7 +371,7 @@ INSERT INTO some_table (
     $[..], $[..]
 );
                 ",
-                "`$[..]` is empty",
+                "parameter group is used, but not defined",
             ),
             (
                 r"
@@ -385,7 +382,7 @@ INSERT INTO some_table (
     $[..]
 );
                 ",
-                "`$[..]` is not used",
+                "previous parameter group is not used",
             ),
             (
                 r"
@@ -395,7 +392,7 @@ INSERT INTO some_table (
     $one, $two, $three
 );
                 ",
-                "`$[..]` is not used",
+                "last parameter group is not used",
             ),
             (
                 r"
@@ -416,6 +413,16 @@ INSERT INTO some_table (
 );
                 ",
                 "expected identifier or `[` after `$`",
+            ),
+            (
+                r"
+INSERT INTO some_table (
+    $[one, two,]
+) VALUES (
+    $[..]
+);
+                ",
+                "expected identifier between all of `$[`, every `,` and final `]`",
             ),
         ];
 
