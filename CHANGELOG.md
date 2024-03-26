@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.2.2] - 2024-03-26
+## [0.2.3] - 2024-03-26
 
 Fix: Improve error messages when sql contains invalid parameter groups.
 
