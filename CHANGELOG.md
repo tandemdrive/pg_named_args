@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.3] - 2024-03-26
+
+Fix: Improve error messages when sql contains invalid parameter groups.
+
 ## [0.2.2] - 2024-02-28
 
 Fix: The macro would incorrectly accept struct update syntax.

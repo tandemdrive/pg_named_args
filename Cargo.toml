@@ -1,6 +1,6 @@
 [package]
 name = "pg_named_args"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 readme = "README.md"
 repository = "https://github.com/tandemdrive/pg_named_args"
@@ -8,7 +8,7 @@ description = "PostgreSQL named arguments"
 license = "MIT OR Apache-2.0"
 authors = ["TandemDrive"]
 keywords = ["postgresql", "database", "query", "arguments", "macro"]
-categories = ["database-interfaces"]
+categories = ["database"]
 
 [lib]
 proc-macro = true
