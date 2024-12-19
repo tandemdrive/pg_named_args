@@ -1,0 +1,7 @@
+error: expected `Args` struct
+ --> tests/ui/no_args.rs:4:5
+  |
+4 |     query_args!("$a, $b");
+  |     ^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `query_args` (in Nightly builds, run with -Z macro-backtrace for more info)

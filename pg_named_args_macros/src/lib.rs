@@ -87,6 +87,8 @@
 //! This means that rust-analyzer knows which arguments are required and can complete them.
 //! Use the code action "Fill struct fields" or ask rust-analyzer to complete a field name.
 
+use std::collections::HashMap;
+
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{
@@ -94,6 +96,7 @@ use syn::{
     ext::IdentExt,
     parse::{Parse, ParseStream},
     parse2, parse_macro_input, parse_quote,
+    punctuated::Punctuated,
     spanned::Spanned,
     token::Brace,
     ExprStruct, ItemStruct, LitStr, Member, Token,
@@ -127,68 +130,101 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut fragments = vec![];
     let template = rewrite_query(format.template, &mut names, &mut errors, &mut fragments);
 
-    let def = struct_def(&format.args_name, &names, &fragments);
-    if (&format.args_name) != "Args" {
-        errors.push(syn::Error::new_spanned(
-            &format.args_name,
-            "expected struct name to be `Args`",
+    let mut args = HashMap::new();
+    format
+        .args
+        .into_iter()
+        .flat_map(|x| x.1.into_iter())
+        .for_each(|x| {
+            // TODO: simplify this
+            let mut init = TokenStream::new();
+            x.name.to_tokens(&mut init);
+            x.brace.surround(&mut init, |init| x.inner.to_tokens(init));
+            // we only care when the struct parses, because we output the raw input which would otherwise give an error.
+            let fields: Vec<_> = parse2::<ExprStruct>(init)
+                .ok()
+                .map(|inner| {
+                    if let Some(dots) = inner.dot2_token {
+                        errors.push(syn::Error::new_spanned(
+                            dots,
+                            "struct update syntax is not supported by the query_args macro",
+                        ))
+                    }
+
+                    inner.fields.into_iter().collect()
+                })
+                .unwrap_or_default();
+
+            // something is always inserted here as a proof that rustc will check the struct fields.
+            if let Some(_) = args.insert(x.name.to_string(), fields) {
+                errors.push(syn::Error::new_spanned(x.name, "duplicate struct name"));
+            }
+        });
+
+    let params: Vec<_> = args
+        .remove("Args")
+        .map(|fields| {
+            // this will only be a list of the fields that actually exist.
+            // if not all fields are specified it is a struct init error.
+            names
+                .iter()
+                .filter_map(|search| {
+                    fields.iter().find_map(|field| {
+                        let Member::Named(name) = &field.member else {
+                            return None;
+                        };
+                        (name.unraw() == *search).then_some(field.expr.clone())
+                    })
+                })
+                .map(|res| {
+                    // Make a reference using res.span() so that ToSql errors are shown nicely.
+                    let res = quote_spanned!(res.span()=> &#res);
+                    // Cast to &dyn without span to hide unnecessary cast warning
+                    quote!(#res as &(dyn ::postgres_types::ToSql + Sync))
+                })
+                .collect()
+        })
+        .unwrap_or_else(|| {
+            if !names.is_empty() {
+                errors.push(syn::Error::new(Span::call_site(), "expected `Args` struct"));
+            }
+            vec![]
+        });
+
+    let fragment_args: Vec<_> = args
+        .remove("Sql")
+        .map(|fields| {
+            // this will only be a list of the fields that actually exist.
+            // if not all fields are specified it is a struct init error.
+            fragments
+                .iter()
+                .filter_map(|search| {
+                    fields.iter().find_map(|field| {
+                        let Member::Named(name) = &field.member else {
+                            return None;
+                        };
+                        (name.unraw() == *search).then_some(field.expr.clone())
+                    })
+                })
+                .map(|res| quote_spanned!(res.span()=> ::pg_named_args::Fragment::get(#res)))
+                .collect()
+        })
+        .unwrap_or_else(|| {
+            if !fragments.is_empty() {
+                errors.push(syn::Error::new(Span::call_site(), "expected `Sql` struct"));
+            }
+            vec![]
+        });
+
+    for key in args.keys() {
+        errors.push(syn::Error::new(
+            Span::call_site(),
+            format!("unknown struct name `{key}`"),
         ));
     }
 
-    let mut init = TokenStream::new();
-    format.args_name.to_tokens(&mut init);
-    format
-        .args_brace
-        .surround(&mut init, |init| format.args_inner.to_tokens(init));
-
-    let mut params = quote!(&[]);
-    let mut fragment_args = vec![];
-    if let Ok(res) = parse2::<ExprStruct>(init) {
-        if let Some(dots) = res.dot2_token {
-            errors.push(syn::Error::new_spanned(
-                dots,
-                "struct update syntax is not supported by the query_args macro",
-            ))
-        }
-
-        let new_params = names
-            .iter()
-            .map(|search| {
-                res.fields
-                    .iter()
-                    .find_map(|field| {
-                        let Member::Named(name) = &field.member else {
-                            return None;
-                        };
-                        (name.unraw() == *search).then_some(field.expr.clone())
-                    })
-                    .unwrap()
-            })
-            .map(|res| {
-                // Make a reference using res.span() so that ToSql errors are shown nicely.
-                let res = quote_spanned!(res.span()=> &#res);
-                // Cast to &dyn without span to hide unnecessary cast warning
-                quote!(#res as &(dyn ::postgres_types::ToSql + Sync))
-            });
-        params = quote!(&[#(#new_params),*]);
-
-        fragment_args = fragments
-            .iter()
-            .map(|search| {
-                res.fields
-                    .iter()
-                    .find_map(|field| {
-                        let Member::Named(name) = &field.member else {
-                            return None;
-                        };
-                        (name.unraw() == *search).then_some(field.expr.clone())
-                    })
-                    .unwrap()
-            })
-            .map(|res| quote_spanned!(res.span()=> ::pg_named_args::Fragment::get(#res)))
-            .collect();
-    }
-
+    let def = struct_def(&names);
+    let def2 = struct_def2(&fragments);
     let errors = errors.into_iter().map(|err| err.to_compile_error());
 
     quote!({
@@ -197,26 +233,33 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         if false {
             unreachable!();
             #def;
+            #def2;
             (#input_raw);
         }
-        (&format!(#template #(,#fragment_args)*), #params)
+        (&format!(#template #(,#fragment_args)*), &[#(#params),*])
     })
     .into()
 }
 
-fn struct_def(name: &Ident, names: &[String], fragments: &[String]) -> ItemStruct {
+fn struct_def(names: &[String]) -> ItemStruct {
     let idents = names.iter().map(|x| Ident::new_raw(x, Span::call_site()));
     let generics = names
         .iter()
         .map(|x| Ident::new_raw(&format!("_{x}"), Span::call_site()));
     let generics2 = generics.clone();
+
+    parse_quote!(struct Args<#(#generics),*> {
+        #(#idents: #generics2,)*
+    })
+}
+
+fn struct_def2(fragments: &[String]) -> ItemStruct {
     let fragment_idents = fragments
         .iter()
         .map(|x| Ident::new_raw(x, Span::call_site()));
 
-    parse_quote!(struct #name <#(#generics),*> {
+    parse_quote!(struct Sql {
         #(#fragment_idents: ::pg_named_args::Fragment,)*
-        #(#idents: #generics2,)*
     })
 }
 
@@ -340,23 +383,39 @@ fn rewrite_query(
     LitStr::new(&template, span)
 }
 
+struct RawStruct {
+    name: Ident,
+    brace: Brace,
+    inner: proc_macro2::TokenStream,
+}
+
+impl Parse for RawStruct {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let inner;
+        Ok(RawStruct {
+            name: input.parse()?,
+            brace: braced!(inner in input),
+            inner: inner.parse()?,
+        })
+    }
+}
+
 struct Format {
     template: LitStr,
-    _comma: Token![,],
-    args_name: Ident,
-    args_brace: Brace,
-    args_inner: proc_macro2::TokenStream,
+    args: Option<(Token![,], Punctuated<RawStruct, Token![,]>)>,
 }
 
 impl Parse for Format {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        let inner;
         Ok(Format {
             template: input.parse()?,
-            _comma: input.parse()?,
-            args_name: input.parse()?,
-            args_brace: braced!(inner in input),
-            args_inner: inner.parse()?,
+            args: input
+                .parse::<Option<Token![,]>>()?
+                .map(|comma| {
+                    let rest = input.parse_terminated(RawStruct::parse, Token![,])?;
+                    syn::Result::Ok((comma, rest))
+                })
+                .transpose()?,
         })
     }
 }
