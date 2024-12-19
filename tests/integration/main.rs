@@ -80,7 +80,7 @@ ON CONFLICT DO UPDATE SET b = $1 WHERE c = $2;
 }
 
 #[test]
-fn qeury_args_should_accept_fragment() {
+fn query_args_should_accept_fragment() {
     let f = fragment!("test_fragment");
     let (query, args) = query_args!("$xx, ${a}", Sql { a: f }, Args { xx: 1 });
     let expected_query = r"$1, test_fragment";
