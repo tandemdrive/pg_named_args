@@ -124,9 +124,10 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut errors = vec![];
 
     let mut names = vec![];
-    let template = rewrite_query(format.template, &mut names, &mut errors);
+    let mut fragments = vec![];
+    let template = rewrite_query(format.template, &mut names, &mut errors, &mut fragments);
 
-    let def = struct_def(&format.args_name, &names);
+    let def = struct_def(&format.args_name, &names, &fragments);
     if (&format.args_name) != "Args" {
         errors.push(syn::Error::new_spanned(
             &format.args_name,
@@ -140,7 +141,9 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         .args_brace
         .surround(&mut init, |init| format.args_inner.to_tokens(init));
 
-    let params = if let Ok(res) = parse2::<ExprStruct>(init) {
+    let mut params = quote!(&[]);
+    let mut fragment_args = vec![];
+    if let Ok(res) = parse2::<ExprStruct>(init) {
         if let Some(dots) = res.dot2_token {
             errors.push(syn::Error::new_spanned(
                 dots,
@@ -148,15 +151,18 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             ))
         }
 
-        let params = names
+        let new_params = names
             .iter()
-            .filter_map(|search| {
-                res.fields.iter().find_map(|field| {
-                    let Member::Named(name) = &field.member else {
-                        return None;
-                    };
-                    (name.unraw() == *search).then_some(field.expr.clone())
-                })
+            .map(|search| {
+                res.fields
+                    .iter()
+                    .find_map(|field| {
+                        let Member::Named(name) = &field.member else {
+                            return None;
+                        };
+                        (name.unraw() == *search).then_some(field.expr.clone())
+                    })
+                    .unwrap()
             })
             .map(|res| {
                 // Make a reference using res.span() so that ToSql errors are shown nicely.
@@ -164,10 +170,24 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 // Cast to &dyn without span to hide unnecessary cast warning
                 quote!(#res as &(dyn ::postgres_types::ToSql + Sync))
             });
-        quote!(&[#(#params),*])
-    } else {
-        quote!(&[])
-    };
+        params = quote!(&[#(#new_params),*]);
+
+        fragment_args = fragments
+            .iter()
+            .map(|search| {
+                res.fields
+                    .iter()
+                    .find_map(|field| {
+                        let Member::Named(name) = &field.member else {
+                            return None;
+                        };
+                        (name.unraw() == *search).then_some(field.expr.clone())
+                    })
+                    .unwrap()
+            })
+            .map(|res| quote_spanned!(res.span()=> ::pg_named_args::Fragment::get(#res)))
+            .collect();
+    }
 
     let errors = errors.into_iter().map(|err| err.to_compile_error());
 
@@ -179,24 +199,33 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             #def;
             (#input_raw);
         }
-        (#template, #params)
+        (&format!(#template #(,#fragment_args)*), #params)
     })
     .into()
 }
 
-fn struct_def(name: &Ident, names: &[String]) -> ItemStruct {
+fn struct_def(name: &Ident, names: &[String], fragments: &[String]) -> ItemStruct {
     let idents = names.iter().map(|x| Ident::new_raw(x, Span::call_site()));
     let generics = names
         .iter()
         .map(|x| Ident::new_raw(&format!("_{x}"), Span::call_site()));
     let generics2 = generics.clone();
+    let fragment_idents = fragments
+        .iter()
+        .map(|x| Ident::new_raw(x, Span::call_site()));
 
     parse_quote!(struct #name <#(#generics),*> {
+        #(#fragment_idents: ::pg_named_args::Fragment,)*
         #(#idents: #generics2,)*
     })
 }
 
-fn rewrite_query(inp: LitStr, names: &mut Vec<String>, errors: &mut Vec<syn::Error>) -> LitStr {
+fn rewrite_query(
+    inp: LitStr,
+    names: &mut Vec<String>,
+    errors: &mut Vec<syn::Error>,
+    fragments: &mut Vec<String>,
+) -> LitStr {
     let span = inp.span();
     let mut push_err = |message: &str| errors.push(syn::Error::new(span, message));
 
@@ -226,11 +255,22 @@ fn rewrite_query(inp: LitStr, names: &mut Vec<String>, errors: &mut Vec<syn::Err
         template.push_str(&inp[..dollar_pos]);
         inp = &inp[dollar_pos + 1..];
 
+        let mut is_fragment = false;
+        if inp.get(..1) == Some("{") {
+            is_fragment = true;
+            inp = &inp[1..];
+        }
+
         let ident_len = inp.find(|x: char| !ident_char(x)).unwrap_or(inp.len());
         let ident = &inp[..ident_len];
         inp = &inp[ident_len..];
 
         if ident.is_empty() {
+            if is_fragment {
+                push_err("expected an identifer after `{`");
+                return LitStr::new(&template, span);
+            }
+
             let Some("[") = inp.get(..1) else {
                 push_err("expected identifier or `[` after `$`");
                 return LitStr::new(&template, span);
@@ -278,8 +318,18 @@ fn rewrite_query(inp: LitStr, names: &mut Vec<String>, errors: &mut Vec<syn::Err
                 template.push_str(columns);
             }
         } else {
-            let idx = get_idx(ident);
-            template.push_str(&format!("${}", idx + 1));
+            if is_fragment {
+                if inp.get(..1) == Some("}") {
+                    inp = &inp[1..];
+                } else {
+                    push_err("fragment should end with `}`")
+                }
+                fragments.push(ident.to_owned());
+                template.push_str(&format!("{{}}"));
+            } else {
+                let idx = get_idx(ident);
+                template.push_str(&format!("${}", idx + 1));
+            }
         }
     }
 
@@ -311,6 +361,26 @@ impl Parse for Format {
     }
 }
 
+#[proc_macro]
+pub fn fragment(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input_raw = TokenStream::from(input.clone());
+
+    let lit = parse_macro_input!(input as LitStr);
+    let mut errors = None;
+    let inp = lit.value();
+    if inp.contains('$') {
+        errors = Some(
+            syn::Error::new(lit.span(), "Fragment is not allowed to contain `$`")
+                .into_compile_error(),
+        );
+    }
+    let res = quote!({
+        #errors
+        ::pg_named_args::Fragment::new_unchecked(#input_raw)
+    });
+    res.into()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -318,8 +388,9 @@ mod tests {
     fn rewrite_query_wrapper(format: &str) -> Result<String, Vec<syn::Error>> {
         let mut errors = vec![];
         let mut names = vec![];
+        let mut fragments = vec![];
         let inp = LitStr::new(format, Span::call_site());
-        let res = rewrite_query(inp, &mut names, &mut errors);
+        let res = rewrite_query(inp, &mut names, &mut errors, &mut fragments);
         if errors.is_empty() {
             Ok(res.value())
         } else {
