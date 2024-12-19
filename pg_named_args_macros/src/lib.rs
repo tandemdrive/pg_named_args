@@ -206,7 +206,7 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             .map(|res| quote_spanned!(res.span()=> ::pg_named_args::Fragment::get(#res)))
             .collect();
         // prevent additional errors when the Sql struct is not complete yet
-        if fragment_args.len() == fragments.len() {
+        if fragment_args.len() == fragments.len() && fragments.len() != 0 {
             template = quote!(&::std::format!(#template #(,#fragment_args)*));
         }
     } else {
@@ -271,7 +271,11 @@ fn rewrite_query(
     let span = inp.span();
     let mut push_err = |message: &str| errors.push(syn::Error::new(span, message));
 
-    let mut inp = &*inp.value().replace("{", "{{").replace("}", "}}");
+    let mut inp = &*inp.value();
+    let escaped = inp.replace("{", "{{").replace("}", "}}");
+    if !fragments.is_empty() {
+        inp = &escaped;
+    }
 
     let mut template = String::new();
     let mut batch = None::<String>;
