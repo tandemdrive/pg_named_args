@@ -191,30 +191,29 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             vec![]
         });
 
-    let fragment_args: Vec<_> = args
-        .remove("Sql")
-        .map(|fields| {
-            // this will only be a list of the fields that actually exist.
-            // if not all fields are specified it is a struct init error.
-            fragments
-                .iter()
-                .filter_map(|search| {
-                    fields.iter().find_map(|field| {
-                        let Member::Named(name) = &field.member else {
-                            return None;
-                        };
-                        (name.unraw() == *search).then_some(field.expr.clone())
-                    })
+    let mut template = quote!(#template);
+    if let Some(fields) = args.remove("Sql") {
+        let fragment_args: Vec<_> = fragments
+            .iter()
+            .filter_map(|search| {
+                fields.iter().find_map(|field| {
+                    let Member::Named(name) = &field.member else {
+                        return None;
+                    };
+                    (name.unraw() == *search).then_some(field.expr.clone())
                 })
-                .map(|res| quote_spanned!(res.span()=> ::pg_named_args::Fragment::get(#res)))
-                .collect()
-        })
-        .unwrap_or_else(|| {
-            if !fragments.is_empty() {
-                errors.push(syn::Error::new(Span::call_site(), "expected `Sql` struct"));
-            }
-            vec![]
-        });
+            })
+            .map(|res| quote_spanned!(res.span()=> ::pg_named_args::Fragment::get(#res)))
+            .collect();
+        // prevent additional errors when the Sql struct is not complete yet
+        if fragment_args.len() == fragments.len() {
+            template = quote!(&format!(#template #(,#fragment_args)*));
+        }
+    } else {
+        if !fragments.is_empty() {
+            errors.push(syn::Error::new(Span::call_site(), "expected `Sql` struct"));
+        }
+    }
 
     for key in args.keys() {
         errors.push(syn::Error::new(
@@ -236,7 +235,7 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             #def2;
             (#input_raw);
         }
-        (&format!(#template #(,#fragment_args)*), &[#(#params),*])
+        (#template, &[#(#params),*])
     })
     .into()
 }

@@ -1,0 +1,5 @@
+error[E0063]: missing field `a` in initializer of `Sql`
+ --> tests/ui/sql_missing_field.rs:4:25
+  |
+4 |     query_args!("${a}", Sql {});
+  |                         ^^^ missing `a`
