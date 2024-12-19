@@ -207,7 +207,7 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             .collect();
         // prevent additional errors when the Sql struct is not complete yet
         if fragment_args.len() == fragments.len() {
-            template = quote!(&format!(#template #(,#fragment_args)*));
+            template = quote!(&::std::format!(#template #(,#fragment_args)*));
         }
     } else {
         if !fragments.is_empty() {
