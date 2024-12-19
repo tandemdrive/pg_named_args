@@ -2,7 +2,7 @@ extern crate self as pg_named_args;
 
 pub use pg_named_args_macros::{fragment, query_args};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct Fragment(&'static str);
 
 impl Fragment {
