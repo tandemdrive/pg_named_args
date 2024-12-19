@@ -13,7 +13,7 @@ impl Fragment {
     #[doc(hidden)]
     /// This is the constructor used by the [fragment!] macro.
     /// It is not intended to be used manually.
-    pub fn new_unchecked(sql: &'static str) -> Self {
+    pub const fn new_unchecked(sql: &'static str) -> Self {
         Self(sql)
     }
 }
