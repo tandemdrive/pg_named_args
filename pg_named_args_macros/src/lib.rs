@@ -272,7 +272,8 @@ fn rewrite_query(
     let span = inp.span();
     let mut push_err = |message: &str| errors.push(syn::Error::new(span, message));
 
-    let mut inp = &*inp.value();
+    let mut inp = &*inp.value().replace("{", "{{").replace("}", "}}");
+
     let mut template = String::new();
     let mut batch = None::<String>;
 
@@ -299,9 +300,10 @@ fn rewrite_query(
         inp = &inp[dollar_pos + 1..];
 
         let mut is_fragment = false;
-        if inp.get(..1) == Some("{") {
+        // braces have been pre-escaped
+        if inp.get(..2) == Some("{{") {
             is_fragment = true;
-            inp = &inp[1..];
+            inp = &inp[2..];
         }
 
         let ident_len = inp.find(|x: char| !ident_char(x)).unwrap_or(inp.len());
@@ -362,8 +364,9 @@ fn rewrite_query(
             }
         } else {
             if is_fragment {
-                if inp.get(..1) == Some("}") {
-                    inp = &inp[1..];
+                // braces have been pre-escaped
+                if inp.get(..2) == Some("}}") {
+                    inp = &inp[2..];
                 } else {
                     push_err("fragment should end with `}`")
                 }
