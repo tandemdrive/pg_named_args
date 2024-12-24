@@ -192,25 +192,29 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         });
 
     let mut template = quote!(#template);
-    let fragment_args: Vec<_> = if let Some(fields) = args.remove("Sql") {
-        fragments
-            .iter()
-            .filter_map(|search| {
-                fields.iter().find_map(|field| {
-                    let Member::Named(name) = &field.member else {
-                        return None;
-                    };
-                    (name.unraw() == *search).then_some(field.expr.clone())
+    let fragment_args: Vec<_> = args
+        .remove("Sql")
+        .map(|fields| {
+            fragments
+                .iter()
+                .filter_map(|search| {
+                    fields.iter().find_map(|field| {
+                        let Member::Named(name) = &field.member else {
+                            return None;
+                        };
+                        (name.unraw() == *search).then_some(field.expr.clone())
+                    })
                 })
-            })
-            .map(|res| quote_spanned!(res.span()=> ::pg_named_args::Fragment::get(#res)))
-            .collect()
-    } else {
-        if !fragments.is_empty() {
-            errors.push(syn::Error::new(Span::call_site(), "expected `Sql` struct"));
-        }
-        vec![]
-    };
+                .map(|res| quote_spanned!(res.span()=> ::pg_named_args::Fragment::get(#res)))
+                .collect()
+        })
+        .unwrap_or_else(|| {
+            if !fragments.is_empty() {
+                errors.push(syn::Error::new(Span::call_site(), "expected `Sql` struct"));
+            }
+            vec![]
+        });
+
     // prevent additional errors when the Sql struct is not complete yet
     if fragment_args.len() == fragments.len() {
         template = quote!(&::std::format!(#template #(,#fragment_args)*));

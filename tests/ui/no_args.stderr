@@ -5,3 +5,11 @@ error: expected `Args` struct
   |     ^^^^^^^^^^^^^^^^^^^^^
   |
   = note: this error originates in the macro `query_args` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected `Sql` struct
+ --> tests/ui/no_args.rs:5:5
+  |
+5 |     query_args!("${a}");
+  |     ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `query_args` (in Nightly builds, run with -Z macro-backtrace for more info)
