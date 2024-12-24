@@ -192,8 +192,8 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         });
 
     let mut template = quote!(#template);
-    if let Some(fields) = args.remove("Sql") {
-        let fragment_args: Vec<_> = fragments
+    let fragment_args: Vec<_> = if let Some(fields) = args.remove("Sql") {
+        fragments
             .iter()
             .filter_map(|search| {
                 fields.iter().find_map(|field| {
@@ -204,15 +204,16 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 })
             })
             .map(|res| quote_spanned!(res.span()=> ::pg_named_args::Fragment::get(#res)))
-            .collect();
-        // prevent additional errors when the Sql struct is not complete yet
-        if fragment_args.len() == fragments.len() && fragments.len() != 0 {
-            template = quote!(&::std::format!(#template #(,#fragment_args)*));
-        }
+            .collect()
     } else {
         if !fragments.is_empty() {
             errors.push(syn::Error::new(Span::call_site(), "expected `Sql` struct"));
         }
+        vec![]
+    };
+    // prevent additional errors when the Sql struct is not complete yet
+    if fragment_args.len() == fragments.len() {
+        template = quote!(&::std::format!(#template #(,#fragment_args)*));
     }
 
     for key in args.keys() {
@@ -271,11 +272,7 @@ fn rewrite_query(
     let span = inp.span();
     let mut push_err = |message: &str| errors.push(syn::Error::new(span, message));
 
-    let mut inp = &*inp.value();
-    let escaped = inp.replace("{", "{{").replace("}", "}}");
-    if !fragments.is_empty() {
-        inp = &escaped;
-    }
+    let mut inp = &*inp.value().replace("{", "{{").replace("}", "}}");
 
     let mut template = String::new();
     let mut batch = None::<String>;
