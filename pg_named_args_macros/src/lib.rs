@@ -67,7 +67,7 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 .unwrap_or_default();
 
             // something is always inserted here as a proof that rustc will check the struct fields.
-            if let Some(_) = args.insert(x.name.to_string(), fields) {
+            if args.insert(x.name.to_string(), fields).is_some() {
                 errors.push(syn::Error::new_spanned(x.name, "duplicate struct name"));
             }
         });
@@ -277,20 +277,18 @@ fn rewrite_query(
 
                 template.push_str(columns);
             }
-        } else {
-            if is_fragment {
-                // braces have been pre-escaped
-                if inp.get(..2) == Some("}}") {
-                    inp = &inp[2..];
-                } else {
-                    push_err("fragment should end with `}`")
-                }
-                fragments.push(ident.to_owned());
-                template.push_str(&format!("{{}}"));
+        } else if is_fragment {
+            // braces have been pre-escaped
+            if inp.get(..2) == Some("}}") {
+                inp = &inp[2..];
             } else {
-                let idx = get_idx(ident);
-                template.push_str(&format!("${}", idx + 1));
+                push_err("fragment should end with `}`")
             }
+            fragments.push(ident.to_owned());
+            template.push_str("{}");
+        } else {
+            let idx = get_idx(ident);
+            template.push_str(&format!("${}", idx + 1));
         }
     }
 
