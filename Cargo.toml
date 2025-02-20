@@ -11,7 +11,7 @@ keywords = ["postgresql", "database", "query", "arguments", "macro"]
 categories = ["database"]
 
 [workspace]
-packages = ["pg_named_args_macros"]
+members = ["pg_named_args_macros"]
 
 [dependencies]
 pg_named_args_macros = {version = "0.2.3", path = "./pg_named_args_macros"}

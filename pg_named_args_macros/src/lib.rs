@@ -144,7 +144,12 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     quote!({
         #(#errors;)*
-        #[allow(unreachable_code)]
+        #[allow(
+            unreachable_code,
+            clippy::empty_structs_with_brackets,
+            clippy::inconsistent_struct_constructor,
+            clippy::literal_string_with_formatting_args,
+        )]
         if false {
             unreachable!();
             #def;

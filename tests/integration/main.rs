@@ -1,3 +1,11 @@
+#![allow(unknown_lints)] // TODO: remove this when 1.85 is stable
+#![deny(
+    clippy::literal_string_with_formatting_args,
+    unknown_lints, // enable the lint again
+    clippy::inconsistent_struct_constructor,
+    clippy::empty_structs_with_brackets,
+    unreachable_code
+)]
 use pg_named_args::{fragment, query_args};
 
 #[test]
@@ -29,7 +37,7 @@ fn query_args_should_support_key_value_pairs_as_values() {
 INSERT INTO fred_flintstone(a, b, c)
 VALUES(true, $b, $c);
             ",
-        Args { b, c }
+        Args { c, b }
     );
     let expected_query = r"
 INSERT INTO fred_flintstone(a, b, c)
@@ -81,8 +89,12 @@ ON CONFLICT DO UPDATE SET b = $1 WHERE c = $2;
 
 #[test]
 fn query_args_should_accept_fragment() {
-    let f = fragment!("test_fragment");
-    let (query, args) = query_args!("$xx, ${a}", Sql { a: f }, Args { xx: 1 });
+    let a = fragment!("test_fragment");
+    let (query, args) = query_args!(
+        "$xx, ${a}", // this looks like a format string to trigger clippy::literal_string_with_formatting_args
+        Sql { a },
+        Args { xx: 1 }
+    );
     let expected_query = r"$1, test_fragment";
     assert_eq!(query.trim(), expected_query);
     assert_eq!(args.len(), 1);
