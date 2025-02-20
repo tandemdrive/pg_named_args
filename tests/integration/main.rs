@@ -1,6 +1,8 @@
+#![allow(unknown_lints)] // TODO: remove this when 1.85 is stable
 #![deny(
-    clippy::inconsistent_struct_constructor,
     clippy::literal_string_with_formatting_args,
+    unknown_lints, // enable the lint again
+    clippy::inconsistent_struct_constructor,
     clippy::empty_structs_with_brackets,
     unreachable_code
 )]
