@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo check
+      - run: cargo check --workspace --all-targets
 
   clippy:
     name: clippy
@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo clippy
+      - run: cargo clippy --workspace --all-targets
 
   test:
     name: test
@@ -45,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --all-features --verbose
+      - run: cargo test --workspace --all-features --verbose
 
   readme:
     name: Check if the README is up to date.
