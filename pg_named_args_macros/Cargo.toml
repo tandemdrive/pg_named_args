@@ -1,6 +1,6 @@
 [package]
 name = "pg_named_args_macros"
-version = "0.2.3"
+version = "0.3.0"
 edition = "2021"
 readme = "README.md"
 repository = "https://github.com/tandemdrive/pg_named_args"
