@@ -341,6 +341,12 @@ impl Parse for Format {
     }
 }
 
+/// This macro creates a `Fragment` from a string literal.
+///
+/// Checking that the input is a string literal prevents accidental SQL injection with dynamic strings.
+/// The resulting `Fragment` can be used with the [query_args] macro.
+///
+/// This is useful for creating dynamic queries where fragments can be swapped out for each other.
 #[proc_macro]
 pub fn fragment(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input_raw = TokenStream::from(input.clone());

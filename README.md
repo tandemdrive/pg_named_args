@@ -74,6 +74,29 @@ let (query, args) = query_args!(
 client.execute(query, args).await?;
 ```
 
+## Fragment Syntax
+```rust
+let select = fragment!("
+    SELECT location, time, report
+    FROM weather_reports
+");
+
+let location = "sweden";
+
+let (query, args) = query_args!(
+    r"
+    ${select}
+    WHERE location = $location
+    ",
+    Args {
+        location,
+    },
+    Sql {
+        select,
+    }
+);
+```
+
 ## IDE Support
 
 First, the syntax used by this macro is compatible with rustfmt.
