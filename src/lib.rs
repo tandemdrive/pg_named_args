@@ -4,14 +4,6 @@
 //! to rewrite queries with named arguments, into a query and its positional
 //! arguments.
 //!
-//! # Dependencies
-//! The macro expands to usage of `postgres-types`, so make sure to have it in your dependencies:
-//! ```toml
-//! [dependencies]
-//! postgres-types = ...
-//! pg_named_args = ...
-//! ```
-//!
 //! # Query Argument Syntax
 //! The macro uses struct syntax for the named arguments.
 //! The struct name `Args` is required to support rustfmt and rust-analyzer.
