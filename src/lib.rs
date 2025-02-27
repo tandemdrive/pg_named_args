@@ -115,6 +115,8 @@
 extern crate self as pg_named_args;
 
 pub use pg_named_args_macros::{fragment, query_args};
+#[doc(hidden)]
+pub use postgres_types;
 
 /// Helper type to safely build queries from string literals.
 ///

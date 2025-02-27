@@ -91,7 +91,7 @@ pub fn query_args(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     // Make a reference using res.span() so that ToSql errors are shown nicely.
                     let res = quote_spanned!(res.span()=> &#res);
                     // Cast to &dyn without span to hide unnecessary cast warning
-                    quote!(#res as &(dyn ::postgres_types::ToSql + Sync))
+                    quote!(#res as &(dyn ::pg_named_args::postgres_types::ToSql + Sync))
                 })
                 .collect()
         })
