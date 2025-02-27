@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-02-27
+
+Add support for SQL fragments that can be combined dynamically.
+
+Re-export postgres-types from pg_named_args so that it does not need 
+to be added to the dependencies.
+
+Allow some lints for users of `query_args`.
+
 ## [0.2.3] - 2024-03-26
 
 Fix: Improve error messages when sql contains invalid parameter groups.

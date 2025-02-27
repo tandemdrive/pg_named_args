@@ -2,7 +2,7 @@
 name = "pg_named_args_macros"
 version = "0.3.0"
 edition = "2021"
-readme = "README.md"
+readme = "../README.md"
 repository = "https://github.com/tandemdrive/pg_named_args"
 description = "PostgreSQL named arguments"
 license = "MIT OR Apache-2.0"
