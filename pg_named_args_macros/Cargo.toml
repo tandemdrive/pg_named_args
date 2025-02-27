@@ -17,7 +17,3 @@ proc-macro = true
 proc-macro2 = "1.0.70"
 quote = "1.0.33"
 syn = { version = "2.0.41", default-features = false, features = ["clone-impls", "parsing", "printing", "proc-macro", "full"] }
-
-[dev-dependencies]
-postgres-types = "0.2.6"
-pg_named_args = {path = "../"}
