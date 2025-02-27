@@ -1,6 +1,6 @@
 [package]
 name = "pg_named_args_macros"
-version = "0.2.3"
+version = "0.3.0"
 edition = "2021"
 readme = "README.md"
 repository = "https://github.com/tandemdrive/pg_named_args"
@@ -19,5 +19,4 @@ quote = "1.0.33"
 syn = { version = "2.0.41", default-features = false, features = ["clone-impls", "parsing", "printing", "proc-macro", "full"] }
 
 [dev-dependencies]
-postgres-types = "0.2.6"
 pg_named_args = {path = "../"}

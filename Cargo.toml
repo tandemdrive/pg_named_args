@@ -1,6 +1,6 @@
 [package]
 name = "pg_named_args"
-version = "0.2.3"
+version = "0.3.0"
 edition = "2021"
 readme = "README.md"
 repository = "https://github.com/tandemdrive/pg_named_args"
@@ -14,8 +14,8 @@ categories = ["database"]
 members = ["pg_named_args_macros"]
 
 [dependencies]
-pg_named_args_macros = {version = "0.2.3", path = "./pg_named_args_macros"}
+pg_named_args_macros = {version = "=0.3.0", path = "./pg_named_args_macros"}
+postgres-types = "0.2.6"
 
 [dev-dependencies]
-postgres-types = "0.2.6"
 trybuild = "1.0.89"

@@ -4,14 +4,6 @@
 //! to rewrite queries with named arguments, into a query and its positional
 //! arguments.
 //!
-//! # Dependencies
-//! The macro expands to usage of `postgres-types`, so make sure to have it in your dependencies:
-//! ```toml
-//! [dependencies]
-//! postgres-types = ...
-//! pg_named_args = ...
-//! ```
-//!
 //! # Query Argument Syntax
 //! The macro uses struct syntax for the named arguments.
 //! The struct name `Args` is required to support rustfmt and rust-analyzer.
@@ -78,6 +70,31 @@
 //! client.execute(query, args).await?;
 //! ```
 //!
+//! # Fragment Syntax
+//! ```
+//! # use pg_named_args::{query_args, fragment};
+//! #
+//! let select = fragment!("
+//!     SELECT location, time, report
+//!     FROM weather_reports
+//! ");
+//!
+//! let location = "sweden";
+//!
+//! let (query, args) = query_args!(
+//!     r"
+//!     ${select}
+//!     WHERE location = $location
+//!     ",
+//!     Args {
+//!         location,
+//!     },
+//!     Sql {
+//!         select,
+//!     }
+//! );
+//! ```
+//!
 //! # IDE Support
 //!
 //! First, the syntax used by this macro is compatible with rustfmt.
@@ -90,11 +107,18 @@
 extern crate self as pg_named_args;
 
 pub use pg_named_args_macros::{fragment, query_args};
+#[doc(hidden)]
+pub use postgres_types;
 
+/// Helper type to safely build queries from string literals.
+///
+/// This type can be constructed using the [fragment] macro.
+/// It can then be used in [query_args] as part of the SQL statement.
 #[derive(Clone, Copy, Default)]
 pub struct Fragment(&'static str);
 
 impl Fragment {
+    /// Get the internal [str] from the [Fragment].
     pub fn get(self) -> &'static str {
         self.0
     }
